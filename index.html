@@ -5,130 +5,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stanbot Blox 3D</title>
 <style>
-  body, html { margin:0; padding:0; height:100%; overflow:hidden; font-family: Arial, sans-serif;}
-  body { background: linear-gradient(to bottom, #001f3f, #0074D9); color:white; display:flex; justify-content:center; align-items:center; flex-direction:column;}
-  h1 { font-size: 3em; text-align:center; background: linear-gradient(to right, red, green, blue); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: hue 5s infinite linear; }
-  @keyframes hue { 0% {filter:hue-rotate(0deg);} 100% {filter:hue-rotate(360deg);} }
-
-  button { padding: 15px 30px; font-size: 18px; margin:10px; cursor:pointer; border:none; border-radius:10px; background: #ff4136; color:white; }
-
-  #registration, #menu, #modes, #game { display:none; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; }
-
-  input { padding:10px; font-size:16px; margin:5px; border-radius:5px; border:none; }
+  body { margin:0; padding:0; overflow:hidden; font-family: Arial,sans-serif; }
+  #game { width:100vw; height:100vh; display:block; }
+  #instructions {
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    background: rgba(0,0,0,0.5);
+    padding:10px;
+    border-radius:5px;
+    z-index:10;
+  }
 </style>
 </head>
 <body>
-
-<!-- Главный экран -->
-<div id="main">
-  <h1>Stanbot Blox</h1>
-  <button id="playBtn">Играть</button>
+<div id="instructions">
+  WASD — движение<br>
+  Мышь/сенсор — поворот камеры
 </div>
-
-<!-- Регистрация -->
-<div id="registration">
-  <h2>Регистрация</h2>
-  <input type="text" id="nickname" placeholder="Никнейм"><br>
-  <input type="password" id="password" placeholder="Пароль"><br>
-  <label><input type="checkbox" id="remember"> Запомнить меня</label><br>
-  <button id="registerBtn">Войти</button>
-</div>
-
-<!-- Меню -->
-<div id="menu">
-  <h2 id="displayNick"></h2>
-  <button id="storeBtn">Магазин</button>
-  <button id="playMenuBtn">Играть</button>
-</div>
-
-<!-- Выбор режима -->
-<div id="modes">
-  <h2>Выберите режим</h2>
-  <button id="soloBtn">Одиночный</button>
-  <button disabled>Онлайн (Недоступен)</button>
-</div>
-
-<!-- 3D Мир -->
 <div id="game"></div>
 
-<!-- Three.js -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+
 <script>
-  const main = document.getElementById('main');
-  const registration = document.getElementById('registration');
-  const menu = document.getElementById('menu');
-  const modes = document.getElementById('modes');
-  const gameDiv = document.getElementById('game');
-  const displayNick = document.getElementById('displayNick');
+let scene, camera, renderer, controls;
+let player;
+let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
+let velocity = new THREE.Vector3();
+let clock = new THREE.Clock();
 
-  const playBtn = document.getElementById('playBtn');
-  const registerBtn = document.getElementById('registerBtn');
-  const playMenuBtn = document.getElementById('playMenuBtn');
-  const soloBtn = document.getElementById('soloBtn');
+init();
+animate();
 
-  // Кнопка Играть на главном экране
-  playBtn.onclick = () => {
-    alert("Поверните телефон в горизонтальное положение!");
-    main.style.display = 'none';
-    registration.style.display = 'flex';
-  }
+function init(){
+  // Сцена и камера
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb); // дневное небо
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 
-  // Регистрация
-  registerBtn.onclick = () => {
-    const nick = document.getElementById('nickname').value;
-    const pass = document.getElementById('password').value;
-    const remember = document.getElementById('remember').checked;
+  // Рендер
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  document.getElementById('game').appendChild(renderer.domElement);
 
-    if(nick && pass){
-      if(remember){
-        localStorage.setItem('nick', nick);
-        localStorage.setItem('pass', pass);
-      }
-      registration.style.display = 'none';
-      menu.style.display = 'flex';
-      displayNick.textContent = nick;
-    } else {
-      alert("Введите ник и пароль!");
+  // Свет
+  const light = new THREE.DirectionalLight(0xffffff,1);
+  light.position.set(50,100,50);
+  light.castShadow = true;
+  scene.add(light);
+  scene.add(new THREE.AmbientLight(0xffffff,0.3));
+
+  // Пол
+  const floorGeometry = new THREE.PlaneGeometry(500,500);
+  const floorMaterial = new THREE.MeshStandardMaterial({color:0x228B22});
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI/2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Игрок (куб)
+  const playerGeometry = new THREE.BoxGeometry(2,4,2);
+  const playerMaterial = new THREE.MeshStandardMaterial({color:0xff0000});
+  player = new THREE.Mesh(playerGeometry,playerMaterial);
+  player.position.set(0,2,0);
+  player.castShadow = true;
+  scene.add(player);
+
+  // Камера + управление мышью
+  controls = new THREE.PointerLockControls(camera, document.body);
+  camera.position.y = 2; // глаза персонажа
+  scene.add(controls.getObject());
+
+  document.addEventListener('click',()=>{controls.lock();},false);
+
+  // События клавиш
+  const onKeyDown = function(e){
+    switch(e.code){
+      case 'KeyW': moveForward = true; break;
+      case 'KeyS': moveBackward = true; break;
+      case 'KeyA': moveLeft = true; break;
+      case 'KeyD': moveRight = true; break;
     }
   }
-
-  // Кнопка Играть в меню
-  playMenuBtn.onclick = () => {
-    menu.style.display = 'none';
-    modes.style.display = 'flex';
+  const onKeyUp = function(e){
+    switch(e.code){
+      case 'KeyW': moveForward = false; break;
+      case 'KeyS': moveBackward = false; break;
+      case 'KeyA': moveLeft = false; break;
+      case 'KeyD': moveRight = false; break;
+    }
   }
+  document.addEventListener('keydown', onKeyDown, false);
+  document.addEventListener('keyup', onKeyUp, false);
 
-  // Режим одиночный
-  soloBtn.onclick = () => {
-    modes.style.display = 'none';
-    gameDiv.style.display = 'block';
-    init3D();
-  }
-
-  // 3D мир через Three.js
-  function init3D(){
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    gameDiv.appendChild(renderer.domElement);
+  });
+}
 
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({color:0x00ff00});
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+function animate(){
+  requestAnimationFrame(animate);
 
-    camera.position.z = 5;
+  const delta = clock.getDelta();
+  const speed = 10;
 
-    function animate(){
-      requestAnimationFrame(animate);
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
-      renderer.render(scene, camera);
-    }
-    animate();
-  }
+  velocity.x -= velocity.x * 10.0 * delta;
+  velocity.z -= velocity.z * 10.0 * delta;
+
+  if(moveForward) velocity.z -= speed * delta;
+  if(moveBackward) velocity.z += speed * delta;
+  if(moveLeft) velocity.x -= speed * delta;
+  if(moveRight) velocity.x += speed * delta;
+
+  controls.moveRight(-velocity.x);
+  controls.moveForward(-velocity.z);
+
+  // Камера следует за игроком
+  const playerPos = controls.getObject().position;
+  player.position.set(playerPos.x,2,playerPos.z);
+
+  renderer.render(scene, camera);
+}
 </script>
-
 </body>
 </html>
