@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stanbot Blox</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Arial', sans-serif;
+        background: linear-gradient(to bottom, #001f3f, #0074D9);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        color: white;
+    }
+
+    h1 {
+        font-size: 4em;
+        font-weight: bold;
+        background: linear-gradient(to right, red, green, blue);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: hue 5s infinite linear;
+        text-align: center;
+    }
+
+    @keyframes hue {
+        0% { filter: hue-rotate(0deg); }
+        100% { filter: hue-rotate(360deg); }
+    }
+
+    /* Снег */
+    .snowflake {
+        position: absolute;
+        top: -10px;
+        color: white;
+        font-size: 1em;
+        user-select: none;
+        pointer-events: none;
+        animation-name: fall;
+        animation-duration: 10s;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+    }
+
+    @keyframes fall {
+        0% { transform: translateY(0) translateX(0); opacity: 1; }
+        100% { transform: translateY(100vh) translateX(20px); opacity: 0; }
+    }
+</style>
+</head>
+<body>
+
+<h1>Stanbot Blox</h1>
+
+<script>
+// Генерация снега
+const snowCount = 100;
+
+for (let i = 0; i < snowCount; i++) {
+    const snowflake = document.createElement('div');
+    snowflake.className = 'snowflake';
+    snowflake.textContent = '❄';
+    snowflake.style.left = Math.random() * window.innerWidth + 'px';
+    snowflake.style.fontSize = (Math.random() * 20 + 10) + 'px';
+    snowflake.style.animationDuration = (5 + Math.random() * 5) + 's';
+    snowflake.style.opacity = Math.random();
+    document.body.appendChild(snowflake);
+}
+</script>
+
+</body>
+</html>
