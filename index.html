@@ -1,165 +1,144 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stanbot Blox 3D</title>
-<style>
-  body { margin:0; padding:0; overflow:hidden; font-family: Arial,sans-serif; }
-  #game { width:100vw; height:100vh; display:block; }
-  #hud {
-    position:absolute;
-    top:10px; left:10px;
-    z-index:10;
-    display:flex; gap:10px;
-  }
-  .hud-button {
-    padding:10px 15px;
-    font-size:16px;
-    border:none;
-    border-radius:5px;
-    background:rgba(0,0,0,0.5);
-    color:white;
-    cursor:pointer;
-  }
-  #instructions {
-    position:absolute;
-    top:10px;
-    right:10px;
-    color:white;
-    background: rgba(0,0,0,0.5);
-    padding:10px;
-    border-radius:5px;
-    z-index:10;
-  }
-</style>
-</head>
-<body>
+import pygame
+import random
 
-<div id="hud">
-  <button class="hud-button" id="attackBtn">O</button>
-  <button class="hud-button" id="settingsBtn">Settings</button>
-  <button class="hud-button" id="menuBtn">В меню</button>
-</div>
+# Инициализация
+pygame.init()
 
-<div id="instructions">
-  WASD — движение<br>
-  Мышь/сенсор — поворот камеры
-</div>
+# Настройки экрана
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 400
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+pygame.display.set_caption("My Dash Clone")
 
-<div id="game"></div>
+# Цвета
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+BLUE = (0, 150, 255)
+RED = (255, 50, 50)
+GRAY = (100, 100, 100)
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/PointerLockControls.js"></script>
+# Параметры игрока
+player_size = 40
+player_x = 100
+player_y = SCREEN_HEIGHT - player_size - 50
+player_vel_y = 0
+gravity = 0.8
+jump_strength = -15
+is_jumping = False
 
-<script>
-let scene, camera, renderer, controls;
-let player;
-let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
-let velocity = new THREE.Vector3();
-let clock = new THREE.Clock();
+# Параметры игры
+game_speed = 5
+max_speed = 15
+level = 1
+score = 0
+state = "MENU" # Возможные состояния: MENU, PLAYING, GAMEOVER
 
-init();
-animate();
+# Препятствия
+obstacles = []
 
-function init(){
-  // Сцена и камера
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb); // дневное небо
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+def draw_player(x, y):
+    pygame.draw.rect(screen, BLUE, (x, y, player_size, player_size))
 
-  // Рендер
-  renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  document.getElementById('game').appendChild(renderer.domElement);
+def draw_obstacle(obs):
+    # Рисуем треугольник
+    points = [
+        (obs.x, obs.y + player_size), 
+        (obs.x + player_size // 2, obs.y), 
+        (obs.x + player_size, obs.y + player_size)
+    ]
+    pygame.draw.polygon(screen, RED, points)
 
-  // Свет
-  const light = new THREE.DirectionalLight(0xffffff,1);
-  light.position.set(100,200,100);
-  light.castShadow = true;
-  scene.add(light);
-  scene.add(new THREE.AmbientLight(0xffffff,0.4));
+def show_text(text, x, y, size=36, color=BLACK):
+    font = pygame.font.SysFont("Arial", size)
+    render = font.render(text, True, color)
+    screen.blit(render, (x, y))
 
-  // Пол (трава)
-  const floorGeometry = new THREE.PlaneGeometry(1000,1000);
-  const floorMaterial = new THREE.MeshStandardMaterial({color:0x00aa00});
-  const floor = new THREE.Mesh(floorGeometry,floorMaterial);
-  floor.rotation.x = -Math.PI/2;
-  floor.receiveShadow = true;
-  scene.add(floor);
+# Главный цикл
+running = True
+clock = pygame.time.Clock()
 
-  // Игрок (куб)
-  const playerGeometry = new THREE.BoxGeometry(2,4,2);
-  const playerMaterial = new THREE.MeshStandardMaterial({color:0xff0000});
-  player = new THREE.Mesh(playerGeometry,playerMaterial);
-  player.position.set(0,2,0);
-  player.castShadow = true;
-  scene.add(player);
+while running:
+    screen.fill(WHITE)
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mx, my = pygame.mouse.get_pos()
+            
+            if state == "MENU":
+                if 300 < mx < 500 and 150 < my < 200: # Кнопка Play
+                    state = "PLAYING"
+                    obstacles = []
+                    game_speed = 5
+                elif 300 < mx < 500 and 220 < my < 270: # Shop (заглушка)
+                    print("Магазин пока пуст!")
+            
+            elif state == "PLAYING":
+                if not is_jumping:
+                    player_vel_y = jump_strength
+                    is_jumping = True
+            
+            elif state == "GAMEOVER":
+                if 300 < mx < 500 and 250 < my < 300: # Restart
+                    state = "PLAYING"
+                    obstacles = []
+                    player_y = SCREEN_HEIGHT - player_size - 50
+                    game_speed = 5
+                    score = 0
 
-  // Камера + управление мышью
-  controls = new THREE.PointerLockControls(camera, document.body);
-  camera.position.y = 2; // глаза персонажа
-  scene.add(controls.getObject());
+    if state == "MENU":
+        show_text("GEOMETRY CLONE", 280, 50, 48)
+        pygame.draw.rect(screen, BLUE, (300, 150, 200, 50))
+        show_text("PLAY", 365, 160, color=WHITE)
+        
+        pygame.draw.rect(screen, GRAY, (300, 220, 200, 50))
+        show_text("SHOP", 365, 230, color=WHITE)
+        
+        show_text("ONLINE (Скоро)", 320, 300, 24, color=GRAY)
 
-  document.addEventListener('click',()=>{controls.lock();},false);
+    elif state == "PLAYING":
+        # Гравитация и прыжок
+        player_vel_y += gravity
+        player_y += player_vel_y
+        
+        if player_y >= SCREEN_HEIGHT - player_size - 50:
+            player_y = SCREEN_HEIGHT - player_size - 50
+            is_jumping = False
+            
+        draw_player(player_x, player_y)
+        pygame.draw.line(screen, BLACK, (0, SCREEN_HEIGHT-50), (SCREEN_WIDTH, SCREEN_HEIGHT-50), 2)
 
-  // События клавиш
-  const onKeyDown = function(e){
-    switch(e.code){
-      case 'KeyW': moveForward = true; break;
-      case 'KeyS': moveBackward = true; break;
-      case 'KeyA': moveLeft = true; break;
-      case 'KeyD': moveRight = true; break;
-      case 'KeyO': console.log("Атака! (будет стрелять/бить)"); break;
-    }
-  }
-  const onKeyUp = function(e){
-    switch(e.code){
-      case 'KeyW': moveForward = false; break;
-      case 'KeyS': moveBackward = false; break;
-      case 'KeyA': moveLeft = false; break;
-      case 'KeyD': moveRight = false; break;
-    }
-  }
-  document.addEventListener('keydown', onKeyDown, false);
-  document.addEventListener('keyup', onKeyUp, false);
+        # Создание препятствий
+        if len(obstacles) == 0 or obstacles[-1].x < SCREEN_WIDTH - 300:
+            if random.randint(0, 100) < 2:
+                obstacles.append(pygame.Rect(SCREEN_WIDTH, SCREEN_HEIGHT - 90, player_size, player_size))
 
-  // HUD кнопки
-  document.getElementById('attackBtn').onclick = ()=>{console.log("Нажата кнопка O (атака)");};
-  document.getElementById('settingsBtn').onclick = ()=>{alert("Откроется меню настроек (пока пусто)");};
-  document.getElementById('menuBtn').onclick = ()=>{alert("Вернуться в главное меню (будет добавлено)");};
+        # Движение и отрисовка препятствий
+        for obs in obstacles[:]:
+            obs.x -= game_speed
+            draw_obstacle(obs)
+            
+            # Коллизия (проигрыш)
+            if pygame.Rect(player_x, player_y, player_size, player_size).colliderect(obs):
+                state = "GAMEOVER"
+            
+            if obs.x < -player_size:
+                obstacles.remove(obs)
+                score += 1
+                # Увеличение скорости с ограничением
+                if game_speed < max_speed:
+                    game_speed += 0.1
 
-  window.addEventListener('resize', ()=>{
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-}
+        show_text(f"Score: {score}", 10, 10)
 
-function animate(){
-  requestAnimationFrame(animate);
+    elif state == "GAMEOVER":
+        show_text("ВЫ ПРОИГРАЛИ!", 280, 150, 48, RED)
+        pygame.draw.rect(screen, BLUE, (300, 250, 200, 50))
+        show_text("RESTART", 345, 260, color=WHITE)
 
-  const delta = clock.getDelta();
-  const speed = 20;
+    pygame.display.flip()
+    clock.tick(60)
 
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
-
-  if(moveForward) velocity.z -= speed * delta;
-  if(moveBackward) velocity.z += speed * delta;
-  if(moveLeft) velocity.x -= speed * delta;
-  if(moveRight) velocity.x += speed * delta;
-
-  controls.moveRight(-velocity.x);
-  controls.moveForward(-velocity.z);
-
-  // Камера следует за игроком
-  const playerPos = controls.getObject().position;
-  player.position.set(playerPos.x,2,playerPos.z);
-
-  renderer.render(scene, camera);
-}
-</script>
-</body>
-</html>
+pygame.quit()
