@@ -1,144 +1,140 @@
-import pygame
-import random
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometry Dash Clone</title>
+<style>
+  body { margin:0; padding:0; display:flex; flex-direction:column; align-items:center; font-family:Arial; background:#1e1e1e; color:white;}
+  canvas { background:#222; display:block; margin:0 auto; }
+  #menu, #restartScreen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+  button { padding:10px 20px; font-size:18px; margin:5px; cursor:pointer; border:none; border-radius:5px; background:#ff4136; color:white; }
+</style>
+</head>
+<body>
 
-# Инициализация
-pygame.init()
+<!-- Меню -->
+<div id="menu">
+  <h1>Geometry Dash Clone</h1>
+  <button id="playBtn">Play</button>
+  <button id="shopBtn">Shop</button>
+  <button id="onlineBtn">Online (скоро)</button>
+</div>
 
-# Настройки экрана
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 400
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("My Dash Clone")
+<!-- Канвас игры -->
+<canvas id="gameCanvas" width="800" height="400" style="display:none;"></canvas>
 
-# Цвета
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-BLUE = (0, 150, 255)
-RED = (255, 50, 50)
-GRAY = (100, 100, 100)
+<!-- Экран рестарта -->
+<div id="restartScreen" style="display:none;">
+  <h2>Вы проиграли!</h2>
+  <button id="restartBtn">Restart</button>
+</div>
 
-# Параметры игрока
-player_size = 40
-player_x = 100
-player_y = SCREEN_HEIGHT - player_size - 50
-player_vel_y = 0
-gravity = 0.8
-jump_strength = -15
-is_jumping = False
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-# Параметры игры
-game_speed = 5
-max_speed = 15
-level = 1
-score = 0
-state = "MENU" # Возможные состояния: MENU, PLAYING, GAMEOVER
+const menu = document.getElementById('menu');
+const restartScreen = document.getElementById('restartScreen');
+const playBtn = document.getElementById('playBtn');
+const restartBtn = document.getElementById('restartBtn');
 
-# Препятствия
-obstacles = []
+// Игровые параметры
+let cube = {x:50, y:300, size:30, vy:0, jump: -12};
+let gravity = 0.6;
+let obstacles = [];
+let speed = 5;
+let maxSpeed = 15;
+let level = 1;
+let score = 0;
+let gameOver = false;
 
-def draw_player(x, y):
-    pygame.draw.rect(screen, BLUE, (x, y, player_size, player_size))
+// Создание препятствий
+function createObstacle(){
+    let height = Math.random()*100+20;
+    obstacles.push({x:canvas.width, y:canvas.height-height, width:30, height:height});
+}
 
-def draw_obstacle(obs):
-    # Рисуем треугольник
-    points = [
-        (obs.x, obs.y + player_size), 
-        (obs.x + player_size // 2, obs.y), 
-        (obs.x + player_size, obs.y + player_size)
-    ]
-    pygame.draw.polygon(screen, RED, points)
+// Игра
+function gameLoop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-def show_text(text, x, y, size=36, color=BLACK):
-    font = pygame.font.SysFont("Arial", size)
-    render = font.render(text, True, color)
-    screen.blit(render, (x, y))
+    // кубик
+    cube.vy += gravity;
+    cube.y += cube.vy;
+    if(cube.y > canvas.height-cube.size){
+        cube.y = canvas.height-cube.size;
+        cube.vy = 0;
+    }
+    ctx.fillStyle="red";
+    ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
 
-# Главный цикл
-running = True
-clock = pygame.time.Clock()
+    // препятствия
+    for(let i=0;i<obstacles.length;i++){
+        obstacles[i].x -= speed;
+        ctx.fillStyle="green";
+        ctx.fillRect(obstacles[i].x, obstacles[i].y, obstacles[i].width, obstacles[i].height);
 
-while running:
-    screen.fill(WHITE)
-    
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            mx, my = pygame.mouse.get_pos()
-            
-            if state == "MENU":
-                if 300 < mx < 500 and 150 < my < 200: # Кнопка Play
-                    state = "PLAYING"
-                    obstacles = []
-                    game_speed = 5
-                elif 300 < mx < 500 and 220 < my < 270: # Shop (заглушка)
-                    print("Магазин пока пуст!")
-            
-            elif state == "PLAYING":
-                if not is_jumping:
-                    player_vel_y = jump_strength
-                    is_jumping = True
-            
-            elif state == "GAMEOVER":
-                if 300 < mx < 500 and 250 < my < 300: # Restart
-                    state = "PLAYING"
-                    obstacles = []
-                    player_y = SCREEN_HEIGHT - player_size - 50
-                    game_speed = 5
-                    score = 0
+        // проверка столкновения
+        if(cube.x < obstacles[i].x + obstacles[i].width &&
+           cube.x + cube.size > obstacles[i].x &&
+           cube.y < obstacles[i].y + obstacles[i].height &&
+           cube.y + cube.size > obstacles[i].y){
+            gameOver = true;
+        }
+    }
 
-    if state == "MENU":
-        show_text("GEOMETRY CLONE", 280, 50, 48)
-        pygame.draw.rect(screen, BLUE, (300, 150, 200, 50))
-        show_text("PLAY", 365, 160, color=WHITE)
-        
-        pygame.draw.rect(screen, GRAY, (300, 220, 200, 50))
-        show_text("SHOP", 365, 230, color=WHITE)
-        
-        show_text("ONLINE (Скоро)", 320, 300, 24, color=GRAY)
+    // удаляем препятствия за экраном
+    obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
 
-    elif state == "PLAYING":
-        # Гравитация и прыжок
-        player_vel_y += gravity
-        player_y += player_vel_y
-        
-        if player_y >= SCREEN_HEIGHT - player_size - 50:
-            player_y = SCREEN_HEIGHT - player_size - 50
-            is_jumping = False
-            
-        draw_player(player_x, player_y)
-        pygame.draw.line(screen, BLACK, (0, SCREEN_HEIGHT-50), (SCREEN_WIDTH, SCREEN_HEIGHT-50), 2)
+    // создаем новые препятствия
+    if(Math.random()<0.02) createObstacle();
 
-        # Создание препятствий
-        if len(obstacles) == 0 or obstacles[-1].x < SCREEN_WIDTH - 300:
-            if random.randint(0, 100) < 2:
-                obstacles.append(pygame.Rect(SCREEN_WIDTH, SCREEN_HEIGHT - 90, player_size, player_size))
+    if(gameOver){
+        canvas.style.display="none";
+        restartScreen.style.display="flex";
+    } else {
+        requestAnimationFrame(gameLoop);
+    }
+}
 
-        # Движение и отрисовка препятствий
-        for obs in obstacles[:]:
-            obs.x -= game_speed
-            draw_obstacle(obs)
-            
-            # Коллизия (проигрыш)
-            if pygame.Rect(player_x, player_y, player_size, player_size).colliderect(obs):
-                state = "GAMEOVER"
-            
-            if obs.x < -player_size:
-                obstacles.remove(obs)
-                score += 1
-                # Увеличение скорости с ограничением
-                if game_speed < max_speed:
-                    game_speed += 0.1
+// Прыжок по клику или тапу
+function jump(){
+    if(cube.y >= canvas.height-cube.size){
+        cube.vy = cube.jump;
+    }
+}
 
-        show_text(f"Score: {score}", 10, 10)
+// Обновление скорости и уровня
+function nextLevel(){
+    level++;
+    speed += 0.5;
+    if(speed>maxSpeed) speed = maxSpeed;
+}
 
-    elif state == "GAMEOVER":
-        show_text("ВЫ ПРОИГРАЛИ!", 280, 150, 48, RED)
-        pygame.draw.rect(screen, BLUE, (300, 250, 200, 50))
-        show_text("RESTART", 345, 260, color=WHITE)
+// Кнопки
+playBtn.onclick = ()=>{
+    menu.style.display="none";
+    canvas.style.display="block";
+    cube.y = 300; cube.vy=0;
+    obstacles = [];
+    speed = 5; level=1; gameOver=false;
+    gameLoop();
+}
 
-    pygame.display.flip()
-    clock.tick(60)
+restartBtn.onclick = ()=>{
+    restartScreen.style.display="none";
+    canvas.style.display="block";
+    cube.y = 300; cube.vy=0;
+    obstacles = [];
+    speed = 5; level=1; gameOver=false;
+    gameLoop();
+}
 
-pygame.quit()
+// Клик/тап для прыжка
+canvas.addEventListener('click', jump);
+document.addEventListener('keydown',(e)=>{if(e.code==='Space') jump();});
+
+</script>
+</body>
+</html>
