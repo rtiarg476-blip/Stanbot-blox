@@ -1,140 +1,438 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Geometry Dash Clone</title>
-<style>
-  body { margin:0; padding:0; display:flex; flex-direction:column; align-items:center; font-family:Arial; background:#1e1e1e; color:white;}
-  canvas { background:#222; display:block; margin:0 auto; }
-  #menu, #restartScreen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
-  button { padding:10px 20px; font-size:18px; margin:5px; cursor:pointer; border:none; border-radius:5px; background:#ff4136; color:white; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flick Messenger</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-orange: #FF6B35;
+            --accent-orange: #FF9F1C;
+            --deep-blue: #004E89;
+            --sky-blue: #1A659E;
+            --glass-bg: rgba(0, 78, 137, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-white: #EFEFEF;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: radial-gradient(circle at 20% 20%, var(--deep-blue), #000);
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- Global Effects --- */
+        .scanlines {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .background-blob {
+            position: absolute; border-radius: 50%; filter: blur(80px); z-index: -1;
+            opacity: 0.8; animation: float 10s infinite ease-in-out;
+        }
+        .blob-1 { width: 400px; height: 400px; background: var(--primary-orange); top: -50px; left: -50px; }
+        .blob-2 { width: 500px; height: 500px; background: var(--deep-blue); bottom: -100px; right: -100px; animation-delay: -5s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(30px, -50px); }
+        }
+
+        /* --- UI Components --- */
+        button {
+            background: var(--sky-blue); color: #fff; border: none; padding: 10px 20px;
+            font-family: 'VT323', monospace; font-size: 1.4rem; cursor: pointer;
+            border-radius: 8px; box-shadow: 4px 4px 0 var(--deep-blue);
+            transition: transform 0.1s; text-transform: uppercase;
+        }
+        button:active { transform: translate(4px, 4px); box-shadow: none; }
+        button:hover { background: var(--primary-orange); box-shadow: 4px 4px 0 #9e3612; }
+        button.secondary { background: transparent; border: 2px solid var(--sky-blue); box-shadow: none; }
+        button.secondary:hover { background: rgba(255,255,255,0.1); }
+
+        input {
+            background: rgba(0, 0, 0, 0.3); border: 2px solid var(--sky-blue);
+            color: #fff; padding: 10px; font-family: 'VT323', monospace; font-size: 1.4rem;
+            outline: none; border-radius: 8px; width: 100%;
+        }
+        input:focus { border-color: var(--accent-orange); }
+
+        /* --- Screens --- */
+        .screen { display: none; width: 100%; height: 100%; justify-content: center; align-items: center; }
+        .screen.active { display: flex; }
+
+        /* --- Auth Screen --- */
+        .auth-card {
+            width: 400px; padding: 40px;
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .auth-card h1 { font-size: 4rem; color: var(--primary-orange); margin-bottom: 20px; text-shadow: 4px 4px 0 var(--deep-blue); }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 1.2rem; color: var(--accent-orange); }
+
+        /* --- Main App Container --- */
+        .app-container {
+            width: 90%; max-width: 1200px; height: 85vh;
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            display: flex; overflow: hidden; position: relative;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px; background: rgba(0, 0, 0, 0.3);
+            border-right: 1px solid var(--glass-border);
+            display: flex; flex-direction: column;
+        }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--glass-border); }
+        .user-search { margin-top: 15px; }
+
+        .contact-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .contact {
+            padding: 10px; margin-bottom: 8px; border-radius: 12px;
+            cursor: pointer; display: flex; align-items: center;
+            transition: 0.3s;
+        }
+        .contact:hover, .contact.active { background: rgba(255, 107, 53, 0.2); border: 1px solid var(--primary-orange); }
+        .avatar {
+            width: 45px; height: 45px; background: var(--sky-blue);
+            margin-right: 15px; border: 2px solid #fff; box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+            display: flex; justify-content: center; align-items: center; font-size: 1.5rem;
+        }
+
+        .my-profile-btn {
+            padding: 15px; background: rgba(0,0,0,0.4);
+            border-top: 1px solid var(--glass-border);
+            display: flex; align-items: center; cursor: pointer;
+        }
+        .my-profile-btn:hover { background: rgba(255,255,255,0.05); }
+
+        /* Chat Area */
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: rgba(0, 78, 137, 0.05); }
+        .chat-header { padding: 20px; background: rgba(0,0,0,0.2); display: flex; justify-content: space-between; align-items: center; }
+        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        .msg {
+            max-width: 70%; padding: 12px 18px; font-size: 1.3rem;
+            border-radius: 12px; box-shadow: 4px 4px 0 rgba(0,0,0,0.2);
+            animation: popIn 0.3s;
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        
+        .msg-in { align-self: flex-start; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); }
+        .msg-out { align-self: flex-end; background: var(--primary-orange); color: white; border: 1px solid #ff8c61; }
+        
+        .input-area { padding: 20px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; }
+
+        /* --- Profile Modal --- */
+        .modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            z-index: 100; display: none; justify-content: center; align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--deep-blue); padding: 30px; border: 2px solid var(--primary-orange);
+            border-radius: 15px; width: 400px; text-align: center;
+            box-shadow: 10px 10px 0 rgba(0,0,0,0.5);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-orange); }
+
+    </style>
 </head>
 <body>
 
-<!-- Меню -->
-<div id="menu">
-  <h1>Geometry Dash Clone</h1>
-  <button id="playBtn">Play</button>
-  <button id="shopBtn">Shop</button>
-  <button id="onlineBtn">Online (скоро)</button>
-</div>
+    <div class="scanlines"></div>
+    <div class="background-blob blob-1"></div>
+    <div class="background-blob blob-2"></div>
 
-<!-- Канвас игры -->
-<canvas id="gameCanvas" width="800" height="400" style="display:none;"></canvas>
+    <div id="auth-screen" class="screen active">
+        <div class="auth-card">
+            <h1>Flick_</h1>
+            <div id="login-form">
+                <div class="form-group">
+                    <label>NICKNAME</label>
+                    <input type="text" id="login-user" placeholder="Enter nickname">
+                </div>
+                <button onclick="login()" style="width:100%">LOGIN</button>
+                <p style="margin-top: 15px; cursor: pointer; color: var(--accent-orange);" onclick="toggleAuth('register')">>> No account? Register</p>
+            </div>
 
-<!-- Экран рестарта -->
-<div id="restartScreen" style="display:none;">
-  <h2>Вы проиграли!</h2>
-  <button id="restartBtn">Restart</button>
-</div>
+            <div id="register-form" style="display:none;">
+                <div class="form-group">
+                    <label>NEW NICKNAME</label>
+                    <input type="text" id="reg-user" placeholder="Create nickname">
+                </div>
+                <div class="form-group">
+                    <label>BIO (Optional)</label>
+                    <input type="text" id="reg-bio" placeholder="Short status...">
+                </div>
+                <button onclick="register()" style="width:100%">CREATE ACCOUNT</button>
+                <p style="margin-top: 15px; cursor: pointer; color: var(--accent-orange);" onclick="toggleAuth('login')">>> Back to Login</p>
+            </div>
+        </div>
+    </div>
 
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+    <div id="app-screen" class="screen">
+        <div class="app-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2 style="color: var(--primary-orange); font-size: 2rem;">Flick_</h2>
+                    <div class="user-search">
+                        <input type="text" id="search-input" placeholder="🔍 Search users..." onkeyup="filterUsers()">
+                    </div>
+                </div>
+                
+                <div class="contact-list" id="contact-list">
+                    </div>
 
-const menu = document.getElementById('menu');
-const restartScreen = document.getElementById('restartScreen');
-const playBtn = document.getElementById('playBtn');
-const restartBtn = document.getElementById('restartBtn');
+                <div class="my-profile-btn" onclick="openProfile()">
+                    <div class="avatar" id="my-mini-avatar">ME</div>
+                    <div>
+                        <div id="my-mini-name" style="font-size: 1.4rem;">User</div>
+                        <div style="font-size: 1rem; color: #aaa;">My Settings</div>
+                    </div>
+                </div>
+            </div>
 
-// Игровые параметры
-let cube = {x:50, y:300, size:30, vy:0, jump: -12};
-let gravity = 0.6;
-let obstacles = [];
-let speed = 5;
-let maxSpeed = 15;
-let level = 1;
-let score = 0;
-let gameOver = false;
+            <div class="chat-area">
+                <div class="chat-header">
+                    <div style="display:flex; align-items:center;">
+                        <div class="avatar" id="chat-avatar" style="width:35px; height:35px; font-size:1rem;">?</div>
+                        <h2 id="chat-name">Select a user</h2>
+                    </div>
+                    <span style="color: var(--primary-orange);">● Online</span>
+                </div>
 
-// Создание препятствий
-function createObstacle(){
-    let height = Math.random()*100+20;
-    obstacles.push({x:canvas.width, y:canvas.height-height, width:30, height:height});
-}
+                <div class="messages" id="message-list">
+                    </div>
 
-// Игра
-function gameLoop(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+                <div class="input-area">
+                    <input type="text" id="msg-input" placeholder="Type a message...">
+                    <button onclick="sendMessage()">SEND</button>
+                </div>
+            </div>
 
-    // кубик
-    cube.vy += gravity;
-    cube.y += cube.vy;
-    if(cube.y > canvas.height-cube.size){
-        cube.y = canvas.height-cube.size;
-        cube.vy = 0;
-    }
-    ctx.fillStyle="red";
-    ctx.fillRect(cube.x, cube.y, cube.size, cube.size);
+            <div id="profile-modal" class="modal">
+                <div class="modal-content">
+                    <h2 style="margin-bottom: 20px;">MY PROFILE</h2>
+                    <div class="avatar" id="modal-avatar-preview" style="width: 80px; height: 80px; margin: 0 auto 20px auto; font-size: 2rem;">ME</div>
+                    
+                    <div class="form-group">
+                        <label>CHANGE NICKNAME</label>
+                        <input type="text" id="edit-name">
+                    </div>
+                    <div class="form-group">
+                        <label>STATUS</label>
+                        <input type="text" id="edit-bio">
+                    </div>
 
-    // препятствия
-    for(let i=0;i<obstacles.length;i++){
-        obstacles[i].x -= speed;
-        ctx.fillStyle="green";
-        ctx.fillRect(obstacles[i].x, obstacles[i].y, obstacles[i].width, obstacles[i].height);
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button onclick="saveProfile()" style="flex:1">SAVE</button>
+                        <button class="secondary" onclick="closeProfile()" style="flex:1">CANCEL</button>
+                    </div>
+                    <button class="secondary" onclick="logout()" style="width:100%; margin-top: 10px; border-color: red; color: red;">LOGOUT</button>
+                </div>
+            </div>
 
-        // проверка столкновения
-        if(cube.x < obstacles[i].x + obstacles[i].width &&
-           cube.x + cube.size > obstacles[i].x &&
-           cube.y < obstacles[i].y + obstacles[i].height &&
-           cube.y + cube.size > obstacles[i].y){
-            gameOver = true;
+        </div>
+    </div>
+
+    <script>
+        // --- DATA & STATE ---
+        // Имитация базы данных (Список людей)
+        const mockUsers = [
+            { id: 1, name: "Neo_Matrix", bio: "Follow the rabbit", color: "#2ecc71" },
+            { id: 2, name: "Cyber_Punk", bio: "Night City dreamer", color: "#FF9F1C" },
+            { id: 3, name: "Alice_8bit", bio: "Retro gamer", color: "#9b59b6" },
+            { id: 4, name: "Glitch_God", bio: "System error...", color: "#e74c3c" },
+            { id: 5, name: "Zero_Cool", bio: "Hack the planet", color: "#3498db" }
+        ];
+
+        let currentUser = null;
+        let activeChat = null;
+
+        // --- AUTH LOGIC ---
+        function toggleAuth(type) {
+            if(type === 'register') {
+                document.getElementById('login-form').style.display = 'none';
+                document.getElementById('register-form').style.display = 'block';
+            } else {
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('register-form').style.display = 'none';
+            }
         }
-    }
 
-    // удаляем препятствия за экраном
-    obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+        function register() {
+            const name = document.getElementById('reg-user').value;
+            const bio = document.getElementById('reg-bio').value;
+            if(!name) return alert("Nickname required!");
 
-    // создаем новые препятствия
-    if(Math.random()<0.02) createObstacle();
+            currentUser = { 
+                id: Date.now(), 
+                name: name, 
+                bio: bio || "New user", 
+                color: '#FF6B35' // Default orange
+            };
+            
+            // Сохраняем в LocalStorage
+            localStorage.setItem('flick_user', JSON.stringify(currentUser));
+            enterApp();
+        }
 
-    if(gameOver){
-        canvas.style.display="none";
-        restartScreen.style.display="flex";
-    } else {
-        requestAnimationFrame(gameLoop);
-    }
-}
+        function login() {
+            const name = document.getElementById('login-user').value;
+            if(!name) return alert("Enter nickname");
+            
+            // Простая имитация входа (создаем сессию)
+            currentUser = { 
+                id: Date.now(), 
+                name: name, 
+                bio: "Welcome back!", 
+                color: '#FF6B35' 
+            };
+            localStorage.setItem('flick_user', JSON.stringify(currentUser));
+            enterApp();
+        }
 
-// Прыжок по клику или тапу
-function jump(){
-    if(cube.y >= canvas.height-cube.size){
-        cube.vy = cube.jump;
-    }
-}
+        function logout() {
+            localStorage.removeItem('flick_user');
+            location.reload();
+        }
 
-// Обновление скорости и уровня
-function nextLevel(){
-    level++;
-    speed += 0.5;
-    if(speed>maxSpeed) speed = maxSpeed;
-}
+        function checkSession() {
+            const stored = localStorage.getItem('flick_user');
+            if(stored) {
+                currentUser = JSON.parse(stored);
+                enterApp();
+            }
+        }
 
-// Кнопки
-playBtn.onclick = ()=>{
-    menu.style.display="none";
-    canvas.style.display="block";
-    cube.y = 300; cube.vy=0;
-    obstacles = [];
-    speed = 5; level=1; gameOver=false;
-    gameLoop();
-}
+        function enterApp() {
+            document.getElementById('auth-screen').classList.remove('active');
+            document.getElementById('app-screen').classList.add('active');
+            updateProfileUI();
+            renderContacts(mockUsers);
+        }
 
-restartBtn.onclick = ()=>{
-    restartScreen.style.display="none";
-    canvas.style.display="block";
-    cube.y = 300; cube.vy=0;
-    obstacles = [];
-    speed = 5; level=1; gameOver=false;
-    gameLoop();
-}
+        // --- APP LOGIC ---
+        
+        // 1. Render Contact List (Searchable)
+        function renderContacts(users) {
+            const list = document.getElementById('contact-list');
+            list.innerHTML = "";
+            
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.className = 'contact';
+                div.onclick = () => openChat(user);
+                
+                div.innerHTML = `
+                    <div class="avatar" style="background: ${user.color}">
+                        ${user.name[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <div style="font-weight: bold; font-size: 1.2rem;">${user.name}</div>
+                        <div style="font-size: 0.9rem; opacity: 0.7;">${user.bio}</div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
 
-// Клик/тап для прыжка
-canvas.addEventListener('click', jump);
-document.addEventListener('keydown',(e)=>{if(e.code==='Space') jump();});
+        function filterUsers() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = mockUsers.filter(u => u.name.toLowerCase().includes(query));
+            renderContacts(filtered);
+        }
 
-</script>
+        // 2. Chat Logic
+        function openChat(user) {
+            activeChat = user;
+            document.getElementById('chat-name').innerText = user.name;
+            document.getElementById('chat-avatar').innerText = user.name[0].toUpperCase();
+            document.getElementById('chat-avatar').style.background = user.color;
+            document.getElementById('message-list').innerHTML = `<div style="text-align:center; color:#aaa; margin-top:20px;">-- Chat started with ${user.name} --</div>`;
+            
+            // Сбрасываем выделение в меню
+            document.querySelectorAll('.contact').forEach(el => el.classList.remove('active'));
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('msg-input');
+            const text = input.value;
+            if(!text.trim()) return;
+            if(!activeChat) return alert("Select a user first!");
+
+            // My Message
+            addMsgDOM(text, 'out');
+            input.value = '';
+
+            // Fake Reply (Simulation)
+            setTimeout(() => {
+                const replies = ["Окей!", "Понял.", "Как дела?", "Flick топ!", "Пиксели решают."];
+                addMsgDOM(replies[Math.floor(Math.random() * replies.length)], 'in');
+            }, 1000 + Math.random() * 2000);
+        }
+
+        function addMsgDOM(text, type) {
+            const list = document.getElementById('message-list');
+            const div = document.createElement('div');
+            div.className = `msg ${type === 'out' ? 'msg-out' : 'msg-in'}`;
+            div.innerText = text;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        // 3. Profile Logic
+        function openProfile() {
+            document.getElementById('profile-modal').classList.add('active');
+            document.getElementById('edit-name').value = currentUser.name;
+            document.getElementById('edit-bio').value = currentUser.bio;
+            document.getElementById('modal-avatar-preview').innerText = currentUser.name[0].toUpperCase();
+        }
+
+        function closeProfile() {
+            document.getElementById('profile-modal').classList.remove('active');
+        }
+
+        function saveProfile() {
+            currentUser.name = document.getElementById('edit-name').value;
+            currentUser.bio = document.getElementById('edit-bio').value;
+            
+            // Save & Update UI
+            localStorage.setItem('flick_user', JSON.stringify(currentUser));
+            updateProfileUI();
+            closeProfile();
+        }
+
+        function updateProfileUI() {
+            document.getElementById('my-mini-name').innerText = currentUser.name;
+            document.getElementById('my-mini-avatar').innerText = currentUser.name[0].toUpperCase();
+        }
+
+        // Init
+        checkSession();
+
+    </script>
 </body>
 </html>
